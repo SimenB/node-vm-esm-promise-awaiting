@@ -2,16 +2,6 @@ const { createContext, SourceTextModule } = require('vm');
 const { readFile } = require('fs/promises');
 const { dirname, resolve } = require('path');
 const { pathToFileURL } = require('url');
-const { promisify } = require('util');
-
-const timeout = promisify(setTimeout);
-
-function wait() {
-    // play with this number - around 2s makes both tests fail
-    const randomNumberLowerThan1000 = Math.floor(Math.random() * 2500);
-
-    return timeout(randomNumberLowerThan1000);
-}
 
 async function runTest(testName) {
     const moduleCache = new Map();
@@ -28,7 +18,6 @@ async function runTest(testName) {
         }
 
         const fileContent = await readFile(filename, 'utf8');
-        await wait();
         if (completed) {
             console.error(`Trying to load ${filename} from test ${testName}`);
             throw new Error('test has already completed');
@@ -43,9 +32,6 @@ async function runTest(testName) {
         });
 
         moduleCache.set(filename, module);
-
-        await wait();
-        await wait();
 
         return module;
     }
