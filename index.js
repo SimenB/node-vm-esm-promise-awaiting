@@ -3,23 +3,46 @@ const { readFile } = require('fs/promises');
 const { dirname, resolve } = require('path');
 const { pathToFileURL } = require('url');
 
-async function runTest(testName) {
-    const moduleCache = new Map();
-    const context = createContext({});
-    let completed = false;
+class TestRuntime {
+    constructor(testFile) {
+        this.testFile = testFile;
+        this.moduleCache = new Map();
+        this.testHasCompleted = false;
+        this.context = createContext({});
+    }
 
-    let testFrameworkEval;
+    async loadTestFramework() {
+        await this.entry('./testFramework.js', {
+            identifier: __filename,
+            context: this.context,
+        });
+    }
 
-    async function load(specifier, ref) {
+    async entry(specifier, ref) {
+        const m = await this.load(specifier, ref);
+        if (m.status === 'unlinked') {
+            await m.link(this.load.bind(this));
+        }
+        if (m.status === 'linked') {
+            const { result } = await m.evaluate();
+            // lazy, but just make sure this always loads first
+            if (!this.framework) {
+                this.framework = result;
+            }
+        }
+        return m;
+    }
+
+    async load(specifier, ref) {
         const filename = resolve(dirname(ref.identifier), specifier);
 
-        if (moduleCache.has(filename)) {
-            return moduleCache.get(filename);
+        if (this.moduleCache.has(filename)) {
+            return this.moduleCache.get(filename);
         }
 
         const fileContent = await readFile(filename, 'utf8');
-        if (completed) {
-            console.error(`Trying to load ${filename} from test ${testName}`);
+        if (this.testHasCompleted) {
+            console.error(`Trying to load ${filename} from test ${this.testFile}`);
             throw new Error('test has already completed');
         }
         const module = new SourceTextModule(fileContent, {
@@ -28,37 +51,35 @@ async function runTest(testName) {
             initializeImportMeta(meta) {
                 meta.url = pathToFileURL(filename).href;
             },
-            importModuleDynamically: entry,
+            importModuleDynamically: this.entry.bind(this),
         });
 
-        moduleCache.set(filename, module);
+        this.moduleCache.set(filename, module);
 
         return module;
     }
 
-    async function entry(specifier, ref) {
-        const m = await load(specifier, ref);
-        if (m.status === 'unlinked') {
-            await m.link(load);
-        }
-        if (m.status === 'linked') {
-            const { result } = await m.evaluate();
-            if (!testFrameworkEval) {
-                testFrameworkEval = result;
-            }
-        }
-        return m;
+    async runTest() {
+        await this.entry(this.testFile, {
+            identifier: __filename,
+            context: this.context,
+        });
+
+        const results = await this.framework();
+
+        this.testHasCompleted = true;
+
+        return results;
     }
+}
 
-    await entry('./testFramework.js', { identifier: __filename, context });
+async function runTest(testName) {
+    const runtime = new TestRuntime(testName);
 
-    await entry(testName, { identifier: __filename, context });
+    await runtime.loadTestFramework();
+    const results = await runtime.runTest();
 
-    const testResults = await testFrameworkEval();
-
-    completed = true;
-
-    console.log(testResults);
+    console.log(results);
 }
 
 Promise.all([
