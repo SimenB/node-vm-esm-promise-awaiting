@@ -42,7 +42,9 @@ class TestRuntime {
 
         const fileContent = await readFile(filename, 'utf8');
         if (this.testHasCompleted) {
-            console.error(`Trying to load ${filename} from test ${this.testFile}`);
+            console.error(
+                `Trying to load ${filename} from test ${this.testFile}`
+            );
             throw new Error('test has already completed');
         }
         const module = new SourceTextModule(fileContent, {
@@ -89,7 +91,7 @@ Promise.all([
     .then(() => {
         console.log('test run complete!');
     })
-    .catch(error => {
+    .catch((error) => {
         console.error('Failed', error);
         process.exitCode = 1;
     });

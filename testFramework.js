@@ -4,7 +4,7 @@ globalThis.test = async function test(name, testFun) {
     tests.set(name, testFun);
 };
 
-globalThis.runTests = async function ()  {
+globalThis.runTests = async function () {
     const results = new Map();
 
     for (const [testName, testFunc] of tests) {
@@ -17,4 +17,4 @@ globalThis.runTests = async function ()  {
     }
 
     return results;
-}
+};
