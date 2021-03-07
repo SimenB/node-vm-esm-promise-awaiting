@@ -5,16 +5,15 @@ globalThis.test = async function test(name, testFun) {
 };
 
 globalThis.runTests = async function () {
-    const results = new Map();
+    // this is injected into the context from the test runner
+    const { testResults } = globalThis;
 
     for (const [testName, testFunc] of tests) {
         try {
             await testFunc();
-            results.set(testName, 'success!');
+            testResults.set(testName, 'success!');
         } catch (error) {
-            results.set(testName, error);
+            testResults.set(testName, error);
         }
     }
-
-    return results;
 };

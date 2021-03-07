@@ -8,12 +8,13 @@ class TestRuntime {
         this.testFile = testFile;
         this.moduleCache = new Map();
         this.testHasCompleted = false;
-        this.context = createContext({});
+        this.testResults = new Map();
+        this.context = createContext({ testResults: this.testResults });
     }
 
     async loadTestFramework() {
         await this.entry('./testFramework.js', {
-            identifier: __filename,
+            identifier: resolve(__dirname, './testFramework.js'),
             context: this.context,
         });
     }
@@ -24,11 +25,7 @@ class TestRuntime {
             await m.link(this.load.bind(this));
         }
         if (m.status === 'linked') {
-            const { result } = await m.evaluate();
-            // lazy, but just make sure this always loads first
-            if (!this.framework) {
-                this.framework = result;
-            }
+            await m.evaluate();
         }
         return m;
     }
@@ -67,11 +64,11 @@ class TestRuntime {
             context: this.context,
         });
 
-        const results = await this.framework();
+        await this.context.runTests();
 
         this.testHasCompleted = true;
 
-        return results;
+        return this.testResults;
     }
 }
 
